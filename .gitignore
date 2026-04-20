@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.DS_Store
+
+# Kaggle data and local artifacts
+data/raw/
+models/
+submissions/
+

@@ -47,12 +47,12 @@ For the tuned XGBoost model with cross-validated threshold selection:
 python -m src.retail_return_risk.xgboost_tuned
 ```
 
-The strongest submitted variant so far used a slightly lower threshold:
+The strongest private-score variant so far used a slightly lower threshold:
 
 ```bash
 python -m src.retail_return_risk.xgboost_tuned \
-  --threshold 0.495 \
-  --submission submissions/submission_xgboost_tuned_thr0495.csv
+  --threshold 0.497 \
+  --submission submissions/submission_xgboost_tuned_thr0497.csv
 ```
 
 ## Results
@@ -60,9 +60,11 @@ python -m src.retail_return_risk.xgboost_tuned \
 Best submitted scores so far:
 
 ```text
-best private  submission_xgboost_tuned_thr0495.csv  public 0.56807  private 0.56499
-best public   submission_xgboost_tuned_thr049.csv   public 0.56835  private 0.56411
+best private  submission_xgboost_tuned_thr0497.csv   public 0.56707  private 0.56541
+best public   submission_xgboost_fold73_thr0493.csv  public 0.56848  private 0.56193
 ```
+
+The best private result is the preferred model selection target.
 
 ## Submit
 

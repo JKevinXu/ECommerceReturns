@@ -41,6 +41,29 @@ For a stronger local baseline, run the small ensemble:
 python -m src.retail_return_risk.ensemble
 ```
 
+For the tuned XGBoost model with cross-validated threshold selection:
+
+```bash
+python -m src.retail_return_risk.xgboost_tuned
+```
+
+The strongest submitted variant so far used a slightly lower threshold:
+
+```bash
+python -m src.retail_return_risk.xgboost_tuned \
+  --threshold 0.495 \
+  --submission submissions/submission_xgboost_tuned_thr0495.csv
+```
+
+## Results
+
+Best submitted scores so far:
+
+```text
+best private  submission_xgboost_tuned_thr0495.csv  public 0.56807  private 0.56499
+best public   submission_xgboost_tuned_thr049.csv   public 0.56835  private 0.56411
+```
+
 ## Submit
 
 ```bash

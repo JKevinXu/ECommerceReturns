@@ -4,3 +4,4 @@ pandas==3.0.2
 scikit-learn==1.8.0
 joblib==1.5.3
 xgboost==3.2.0
+torch==2.11.0

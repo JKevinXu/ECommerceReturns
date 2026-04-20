@@ -63,16 +63,39 @@ python -m src.retail_return_risk.xgboost_repeated_cv \
   --submission submissions/submission_xgboost_repeated_cv.csv
 ```
 
+For a neural tabular baseline with categorical embeddings:
+
+```bash
+python -m src.retail_return_risk.embedding_mlp \
+  --threshold 0.497 \
+  --submission submissions/submission_embedding_mlp_thr0497.csv
+```
+
+The strongest private-score entry so far is a small neural/tree blend:
+
+```bash
+python -m src.retail_return_risk.blend_xgboost_mlp \
+  --nn-weight 0.03 \
+  --threshold 0.497 \
+  --submission submissions/submission_xgb_nn_blend_w003_thr0497.csv
+```
+
 ## Results
 
 Best submitted scores so far:
 
 ```text
-best private  submission_xgboost_tuned_thr0497.csv   public 0.56707  private 0.56541
+best private  submission_xgb_nn_blend_w003_thr0497.csv  public 0.56679  private 0.56552
 best public   submission_xgboost_fold73_thr0493.csv  public 0.56848  private 0.56193
 ```
 
 The best private result is the preferred model selection target.
+
+Pure embedding MLP did not beat XGBoost alone:
+
+```text
+submission_embedding_mlp_thr0497.csv  public 0.56464  private 0.56244
+```
 
 Repeated 25-model XGBoost did not beat the best single-seed tuned run:
 

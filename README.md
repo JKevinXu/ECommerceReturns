@@ -55,6 +55,14 @@ python -m src.retail_return_risk.xgboost_tuned \
   --submission submissions/submission_xgboost_tuned_thr0497.csv
 ```
 
+For lower-variance model selection, run repeated 5-fold XGBoost:
+
+```bash
+python -m src.retail_return_risk.xgboost_repeated_cv \
+  --threshold 0.497 \
+  --submission submissions/submission_xgboost_repeated_cv.csv
+```
+
 ## Results
 
 Best submitted scores so far:
@@ -65,6 +73,12 @@ best public   submission_xgboost_fold73_thr0493.csv  public 0.56848  private 0.5
 ```
 
 The best private result is the preferred model selection target.
+
+Repeated 25-model XGBoost did not beat the best single-seed tuned run:
+
+```text
+submission_xgboost_repeated_cv_thr0497.csv  public 0.56616  private 0.56464
+```
 
 ## Submit
 

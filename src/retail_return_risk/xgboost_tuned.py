@@ -24,6 +24,7 @@ from src.retail_return_risk.train import (
 
 
 def parse_args() -> argparse.Namespace:
+    # Keep file paths and training choices configurable from the command line.
     parser = argparse.ArgumentParser(
         description="Train a tuned XGBoost model and write a Kaggle submission."
     )
@@ -49,18 +50,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def make_preprocessor(x: pd.DataFrame) -> ColumnTransformer:
+    # XGBoost needs numeric arrays, so split raw columns by data type first.
     categorical_columns = x.select_dtypes(include=["object", "string"]).columns.tolist()
     numeric_columns = [column for column in x.columns if column not in categorical_columns]
 
     return ColumnTransformer(
         transformers=[
+            # Numeric features stay numeric; missing values are replaced by the fold median.
             ("num", SimpleImputer(strategy="median"), numeric_columns),
             (
                 "cat",
                 Pipeline(
                     steps=[
+                        # Categorical missing values become the most common category in the fold.
                         ("imputer", SimpleImputer(strategy="most_frequent")),
                         (
+                            # One-hot encoding turns strings like "mobile" into 0/1 columns.
                             "encoder",
                             OneHotEncoder(handle_unknown="ignore", sparse_output=False),
                         ),
@@ -75,6 +80,7 @@ def make_preprocessor(x: pd.DataFrame) -> ColumnTransformer:
 
 
 def make_model(seed: int) -> XGBClassifier:
+    # Shallow, regularized trees work well for this noisy tabular problem.
     return XGBClassifier(
         n_estimators=1200,
         learning_rate=0.025,
@@ -96,10 +102,12 @@ def make_model(seed: int) -> XGBClassifier:
 def main() -> None:
     args = parse_args()
 
+    # Kaggle provides train labels, unlabeled test rows, and a required ID order.
     train = pd.read_csv(args.train)
     test = pd.read_csv(args.test)
     sample_submission = pd.read_csv(args.sample)
 
+    # Use all predictive columns, but never train on the target or submission ID.
     feature_columns = [
         column for column in train.columns if column not in {TARGET_COLUMN, ID_COLUMN}
     ]
@@ -107,22 +115,27 @@ def main() -> None:
     y = train[TARGET_COLUMN]
     test_x = test[feature_columns]
 
+    # Stratified folds preserve the returned/not-returned balance in every split.
     folds = StratifiedKFold(
         n_splits=args.folds,
         shuffle=True,
         random_state=args.seed,
     )
+    # OOF predictions score rows with models that did not train on those rows.
     oof_probabilities = np.zeros(len(train), dtype=float)
+    # Test predictions are averaged across fold models for a more stable submission.
     test_probabilities = np.zeros(len(test), dtype=float)
     models = []
     fold_metrics = []
 
     for fold, (train_index, valid_index) in enumerate(folds.split(x, y), start=1):
+        # Each loop trains on 4 folds and validates on the held-out fold.
         x_train = x.iloc[train_index]
         x_valid = x.iloc[valid_index]
         y_train = y.iloc[train_index]
         y_valid = y.iloc[valid_index]
 
+        # The pipeline guarantees validation/test data receive the same preprocessing.
         pipeline = Pipeline(
             steps=[
                 ("preprocess", make_preprocessor(x_train)),
@@ -132,11 +145,13 @@ def main() -> None:
         print(f"Fitting fold {fold}/{args.folds}", flush=True)
         pipeline.fit(x_train, y_train)
 
+        # Column 1 is P(returned = 1); column 0 would be P(returned = 0).
         valid_probabilities = pipeline.predict_proba(x_valid)[:, 1]
         oof_probabilities[valid_index] = valid_probabilities
         test_probabilities += pipeline.predict_proba(test_x)[:, 1] / args.folds
         models.append(pipeline)
 
+        # Pick the best cutoff for this fold and store fold-level diagnostics.
         fold_threshold, fold_accuracy = choose_threshold(
             y_valid, valid_probabilities, args.threshold_metric
         )
@@ -152,6 +167,7 @@ def main() -> None:
             }
         )
 
+    # Choose an OOF threshold for reporting; CLI --threshold can override submission cutoff.
     oof_threshold, threshold_score = choose_threshold(
         y, oof_probabilities, args.threshold_metric
     )
@@ -173,6 +189,7 @@ def main() -> None:
         "features": feature_columns,
     }
 
+    # Convert averaged test probabilities into Kaggle's required ID,returned CSV.
     submission = build_submission(
         sample_submission=sample_submission,
         test=test,
@@ -186,6 +203,7 @@ def main() -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
 
     submission.to_csv(submission_path, index=False)
+    # Store trained fold pipelines so later scripts can reuse their probabilities.
     joblib.dump(
         {
             "models": models,

@@ -12,6 +12,7 @@ from src.retail_return_risk.train import build_submission
 
 
 def parse_args() -> argparse.Namespace:
+    # Defaults reproduce the current best private-score blend.
     parser = argparse.ArgumentParser(
         description="Blend tuned XGBoost probabilities with embedding-MLP probabilities."
     )
@@ -30,19 +31,23 @@ def parse_args() -> argparse.Namespace:
 
 
 def parse_float_list(raw: str) -> list[float]:
+    # Used for optional extra threshold submissions, e.g. "0.493,0.495".
     if not raw.strip():
         return []
     return [float(value.strip()) for value in raw.split(",") if value.strip()]
 
 
 def threshold_suffix(value: float) -> str:
+    # Make threshold values safe for filenames: 0.497 -> "0497".
     return str(round(value, 6)).replace(".", "")
 
 
 def load_xgboost_probabilities(path: str, test: pd.DataFrame) -> np.ndarray:
+    # The XGBoost artifact contains one pipeline per fold.
     artifact = joblib.load(path)
     feature_columns = artifact["feature_columns"]
     probabilities = [
+        # Average P(returned = 1) from all fold models.
         model.predict_proba(test[feature_columns])[:, 1]
         for model in artifact["models"]
     ]
@@ -56,6 +61,7 @@ def write_submission(
     threshold: float,
     output_path: Path,
 ) -> dict[str, float | int | str]:
+    # Shared helper does the final thresholding and ID-order safety check.
     submission = build_submission(
         sample_submission=sample_submission,
         test=test,
@@ -76,16 +82,19 @@ def write_submission(
 def main() -> None:
     args = parse_args()
 
+    # Load test rows and both model families' test probabilities.
     test = pd.read_csv(args.test)
     sample_submission = pd.read_csv(args.sample)
     xgboost_probabilities = load_xgboost_probabilities(args.xgboost_artifact, test)
     mlp_artifact = joblib.load(args.mlp_artifact)
     mlp_probabilities = mlp_artifact["test_probabilities"]
 
+    # Final prediction is mostly XGBoost with a small neural-net correction.
     blend_probabilities = (
         (1 - args.nn_weight) * xgboost_probabilities
         + args.nn_weight * mlp_probabilities
     )
+    # Diagnostics make it clear how different the two model probability sets are.
     diagnostics = {
         "nn_weight": args.nn_weight,
         "xgboost_mean_probability": float(np.mean(xgboost_probabilities)),
@@ -99,6 +108,7 @@ def main() -> None:
 
     outputs = []
     submission_path = Path(args.submission)
+    # Write the main requested threshold submission first.
     outputs.append(
         write_submission(
             sample_submission,
@@ -108,6 +118,7 @@ def main() -> None:
             submission_path,
         )
     )
+    # Optionally write nearby thresholds without rerunning model prediction.
     for threshold in parse_float_list(args.extra_thresholds):
         if np.isclose(threshold, args.threshold):
             continue
@@ -132,4 +143,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
